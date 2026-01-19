@@ -56,16 +56,16 @@ To download a file, you need:
 ```swift
 import Xet
 
-let downloader = XetDownloader(
+try await Xet.withDownloader(
     refreshURL: refreshURL,
     hubToken: "hf_..."  // optional, required for private repos
-)
+) { downloader in
+    // Download to memory
+    let data = try await downloader.data(for: fileID)
 
-// Download to memory
-let data = try await downloader.data(for: fileID)
-
-// Download to disk
-try await downloader.download(fileID, to: destinationURL)
+    // Download to disk
+    try await downloader.download(fileID, to: destinationURL)
+}
 ```
 
 ### Partial Downloads
@@ -101,6 +101,33 @@ let refreshURL = URL(string:
 // Get the file ID by making a request that doesn't follow redirects
 // and reading the X-Xet-Hash header from the response
 ```
+
+### Tuning HTTP Performance
+
+This package uses `AsyncHTTPClient` under the hood for CAS and xorb downloads.
+The downloader manages a small pool of HTTP clients and shuts them down
+automatically when you use `Xet.withDownloader`.
+Tuning can help when you need to balance throughput, memory, and connection
+limits for your network environment.
+
+You can configure the client pool and timeouts through
+`XetDownloader.Configuration`:
+
+```swift
+var configuration = XetDownloader.Configuration.default
+configuration.connectionsPerHost = 8
+configuration.poolSize = 2
+configuration.readTimeout = 300
+
+try await Xet.withDownloader(
+    refreshURL: refreshURL,
+    hubToken: "hf_...",
+    configuration: configuration
+) { downloader in
+    try await downloader.download(fileID, to: destinationURL)
+}
+```
+
 
 ## How It Works
 
